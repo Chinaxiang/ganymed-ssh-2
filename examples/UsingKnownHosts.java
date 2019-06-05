@@ -1,9 +1,6 @@
-/*
- * Copyright (c) 2006-2011 Christian Plattner. All rights reserved.
- * Please refer to the LICENSE.txt for licensing details.
- */
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -13,76 +10,77 @@ import ch.ethz.ssh2.KnownHosts;
 import ch.ethz.ssh2.Session;
 import ch.ethz.ssh2.StreamGobbler;
 
-public class UsingKnownHosts
-{
-	static KnownHosts database = new KnownHosts();
+public class UsingKnownHosts {
+    static KnownHosts database = new KnownHosts();
 
-	public static void main(String[] args) throws IOException
-	{
-		String hostname = "somehost";
-		String username = "joe";
-		String password = "joespass";
+    public static void main(String[] args) throws IOException {
+        String hostname = "10.255.1.103";
+        String username = "ubuntu";
+        String password = "Quanshi#$%qwe";
 
-		File knownHosts = new File("~/.ssh/known_hosts");
+        File knownHosts = new File("/Users/chinaxiang/.ssh/known_hosts");
+        System.out.println(knownHosts.getAbsolutePath());
+        try {
+            /* Load known_hosts file into in-memory database */
 
-		try
-		{
-			/* Load known_hosts file into in-memory database */
+            if (knownHosts.exists())
+                database.addHostkeys(knownHosts);
 
-			if (knownHosts.exists())
-				database.addHostkeys(knownHosts);
+            /* Create a connection instance */
 
-			/* Create a connection instance */
+            Connection conn = new Connection(hostname);
 
-			Connection conn = new Connection(hostname);
+            /* Now connect and use the SimpleVerifier */
 
-			/* Now connect and use the SimpleVerifier */
+            conn.connect(new SimpleVerifier(database));
 
-			conn.connect(new SimpleVerifier(database));
+            /* Authenticate */
 
-			/* Authenticate */
+            boolean isAuthenticated = conn.authenticateWithPassword(username, password);
 
-			boolean isAuthenticated = conn.authenticateWithPassword(username, password);
+            if (isAuthenticated == false)
+                throw new IOException("Authentication failed.");
+            
+            FileReader fr = new FileReader(knownHosts);
+            BufferedReader fbr = new BufferedReader(fr);
+            String s = fbr.readLine();
+            System.out.println(s);
+            fbr.close();
+            
 
-			if (isAuthenticated == false)
-				throw new IOException("Authentication failed.");
+            /* Create a session */
 
-			/* Create a session */
+            Session sess = conn.openSession();
 
-			Session sess = conn.openSession();
+            sess.execCommand("uname -a && date && uptime && who");
 
-			sess.execCommand("uname -a && date && uptime && who");
+            InputStream stdout = new StreamGobbler(sess.getStdout());
+            BufferedReader br = new BufferedReader(new InputStreamReader(stdout));
 
-			InputStream stdout = new StreamGobbler(sess.getStdout());
-			BufferedReader br = new BufferedReader(new InputStreamReader(stdout));
+            System.out.println("Here is some information about the remote host:");
 
-			System.out.println("Here is some information about the remote host:");
+            while (true) {
+                String line = br.readLine();
+                if (line == null)
+                    break;
+                System.out.println(line);
+            }
 
-			while (true)
-			{
-				String line = br.readLine();
-				if (line == null)
-					break;
-				System.out.println(line);
-			}
+            /* close the buffer reader */
 
-			/* close the buffer reader */
-			
-			br.close();
-			
-			/* Close this session */
+            br.close();
 
-			sess.close();
+            /* Close this session */
 
-			/* Close the connection */
+            sess.close();
 
-			conn.close();
+            /* Close the connection */
 
-		}
-		catch (IOException e)
-		{
-			e.printStackTrace(System.err);
-			System.exit(2);
-		}
-	}
+            conn.close();
+
+        } catch (IOException e) {
+            e.printStackTrace(System.err);
+            System.exit(2);
+        }
+    }
 }
